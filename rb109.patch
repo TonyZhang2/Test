@@ -1,0 +1,139 @@
+Index: trunk/lib/operator/deleteMappingOperator.js
+===================================================================
+--- trunk/lib/operator/deleteMappingOperator.js	(revision 26956)
++++ trunk/lib/operator/deleteMappingOperator.js	(revision 26957)
+@@ -1,64 +1,66 @@
+-(function() {
++(function () {
+ 
+   var Logger = require(__dirname + '/../log/logger');
+   var Constants = require(__dirname + '/../core/constants');
+   var SolResult = require(__dirname + '/../core/solResult');
+   var Utils = require(__dirname + '/../util/utils');
+   var AdapterUtil = require(__dirname + '/../adapter/util/adapterUtil');
++  var PersistenceManager = require(__dirname + '/../db/persistenceManager');
+ 
+-  var DeleteMappingOperator = function(appName, actionType, adapter) {
++  var DeleteMappingOperator = function (appName, actionType, adapter) {
+     if (Constants.ActionType.DELETE != actionType) {
+       throw new TypeError('actionType should be delete.');
+     }
+     this.appName = appName;
+     this.actionType = actionType;
+     this.logger = Logger.getLogger();
++    this.persistenceManager = new PersistenceManager();
+   };
+ 
+-  DeleteMappingOperator.prototype.getAppName = function() {
++  DeleteMappingOperator.prototype.getAppName = function () {
+     return this.appName;
+   };
+ 
+-  DeleteMappingOperator.prototype.getAPIName = function() {
++  DeleteMappingOperator.prototype.getAPIName = function () {
+     return 'deleteMapping';
+   };
+ 
+-  DeleteMappingOperator.prototype.commit = function(resource, resourceType, transactionLog, callback) {
++  DeleteMappingOperator.prototype.commit = function (resource, resourceType, transactionLog, callback) {
+     var self = this;
+     var realm = self._getRealm(transactionLog);
+     // save undo and redo
+     realm.redo = resource;
+     realm.undo = resource;
+     self._getPersistenceManager().deleteResourceWithoutReturn(resourceType, resource.id,
+-        function(deleteErr, deleteSolResult) {
+-          try {
+-            if (deleteErr || deleteSolResult.error) {
+-              // meet error when delete
+-              realm.status = Constants.TransactionLogStatus.FAIL;
+-              transactionLog.status = Constants.TransactionLogStatus.FAIL;
+-            } else {
+-              // delete successfully
+-              realm.status = Constants.TransactionLogStatus.SUCCESS;
+-              transactionLog.status = Constants.TransactionLogStatus.SUCCESS;
+-            }
+-            if (deleteErr) {
+-              // let catch statement to handle error
+-              throw deleteErr;
+-            } else {
+-              AdapterUtil.removeMappingFromCache(resource, resourceType);
+-              var solResult = new SolResult(null, resource);
+-              callback(null, solResult);
+-            }
+-          } catch (e) {
+-            self.logger.error(e);
+-            // convert error to result.error, then return;
+-            var rnt = Utils.createReturnedSystemError(e);
+-            callback(null, rnt);
++      function (deleteErr, deleteSolResult) {
++        try {
++          if (deleteErr || deleteSolResult.error) {
++            // meet error when delete
++            realm.status = Constants.TransactionLogStatus.FAIL;
++            transactionLog.status = Constants.TransactionLogStatus.FAIL;
++          } else {
++            // delete successfully
++            realm.status = Constants.TransactionLogStatus.SUCCESS;
++            transactionLog.status = Constants.TransactionLogStatus.SUCCESS;
+           }
+-        });
++          if (deleteErr) {
++            // let catch statement to handle error
++            throw deleteErr;
++          } else {
++            AdapterUtil.removeMappingFromCache(resource, resourceType);
++            var solResult = new SolResult(null, resource);
++            callback(null, solResult);
++          }
++        } catch (e) {
++          self.logger.error(e);
++          // convert error to result.error, then return;
++          var rnt = Utils.createReturnedSystemError(e);
++          callback(null, rnt);
++        }
++      });
+   };
+ 
+-  DeleteMappingOperator.prototype.rollback = function(transactionLog, callback) {
++  DeleteMappingOperator.prototype.rollback = function (transactionLog, callback) {
+     var self = this;
+     var realm = self._getRealm(transactionLog);
+     var resource = realm.undo;
+@@ -67,13 +69,13 @@
+ 
+     // this operation has been rollbacked, do nothing.
+     if (realmStatus == Constants.TransactionLogStatus.ROLLBACK_FAIL
+-        || realmStatus == Constants.TransactionLogStatus.ROLLBACK
+-        || realmStatus == Constants.TransactionLogStatus.NO_NEED_ROLLBACK) {
++      || realmStatus == Constants.TransactionLogStatus.ROLLBACK
++      || realmStatus == Constants.TransactionLogStatus.NO_NEED_ROLLBACK) {
+       callback(null, null);
+     }
+ 
+     if (resource && realm.status == Constants.TransactionLogStatus.SUCCESS) {
+-      self._getPersistenceManager().createResource(resourceType, resource, function(error, solResult) {
++      self._getPersistenceManager().createResource(resourceType, resource, function (error, solResult) {
+         try {
+           if (error || solResult.error) {
+             // meet error when rollback
+@@ -107,8 +109,8 @@
+ 
+   };
+ 
+-  DeleteMappingOperator.prototype._getRealm = function(transactionLog) {
+-    for ( var i = 0; i < transactionLog.realms.length; i++) {
++  DeleteMappingOperator.prototype._getRealm = function (transactionLog) {
++    for (var i = 0; i < transactionLog.realms.length; i++) {
+       var realm = transactionLog.realms[i];
+       if (this.appName == realm.appName) {
+         return realm;
+@@ -116,7 +118,7 @@
+     }
+   };
+ 
+-  DeleteMappingOperator.prototype._getPersistenceManager = function() {
++  DeleteMappingOperator.prototype._getPersistenceManager = function () {
+     return this.persistenceManager;
+   };
+ 
